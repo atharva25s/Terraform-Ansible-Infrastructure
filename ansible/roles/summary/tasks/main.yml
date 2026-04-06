@@ -1,0 +1,19 @@
+  # ============================================================================
+    # SECTION 10 – Summary
+    # ============================================================================
+
+    - name: "10.1 | Print access information"
+      debug:
+        msg:
+          - "============================================"
+          - " Setup Complete!"
+          - "============================================"
+          - "ArgoCD UI  : https://<EC2_PUBLIC_IP>:8443"
+          - "Username   : admin"
+          - "Password   : {{ argocd_password.stdout }}"
+          - "--------------------------------------------"
+          - "car-app frontend : http://<EC2_PUBLIC_IP>"
+          - "car-app backend  : http://<EC2_PUBLIC_IP>/api  (or via ingress path)"
+          - "--------------------------------------------"
+          - "Port-forward log : {{ workdir }}/argocd-portforward.log"
+          - "============================================"

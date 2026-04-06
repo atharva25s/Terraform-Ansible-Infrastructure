@@ -1,0 +1,19 @@
+- name: "3.1 | Make install_kind.sh executable"
+  file:
+    path: "{{ repo_dir }}/KinD-cluster/install_kind.sh"
+    mode: "0755"
+
+- name: "3.2 | Run install_kind.sh"
+  command: "{{ repo_dir }}/KinD-cluster/install_kind.sh"
+  args:
+    chdir: "{{ workdir }}"
+    creates: /usr/local/bin/kind
+
+- name: "3.3 | Verify KinD installation"
+  command: kind --version
+  register: kind_version_out
+  changed_when: false
+
+- name: "3.3 | Print KinD version"
+  debug:
+    msg: "{{ kind_version_out.stdout }}"

@@ -1,0 +1,40 @@
+  # ============================================================================
+    # SECTION 9 – Create ArgoCD Application pointing at car-app K8s specs
+    # ============================================================================
+
+    - name: "9.1 | Create ArgoCD Application 'car-app'"
+      become_user: ubuntu
+      command: >
+        argocd app create {{ argocd_app_name }}
+        --repo {{ argocd_repo_url }}
+        --path {{ argocd_app_path }}
+        --dest-server https://kubernetes.default.svc
+        --dest-namespace {{ argocd_dest_namespace }}
+        --sync-policy automated
+        --auto-prune
+        --self-heal
+        --insecure
+      register: argocd_app_create
+      failed_when: >
+        argocd_app_create.rc != 0 and
+        'already exists' not in argocd_app_create.stderr
+      changed_when: argocd_app_create.rc == 0
+      environment:
+        HOME: "{{ home_dir }}"
+
+    - name: "9.2 | Trigger initial sync for 'car-app'"
+      become_user: ubuntu
+      command: argocd app sync {{ argocd_app_name }} --insecure
+      environment:
+        HOME: "{{ home_dir }}"
+
+    - name: "9.3 | Wait for car-app to become Healthy & Synced"
+      become_user: ubuntu
+      command: >
+        argocd app wait {{ argocd_app_name }}
+        --health
+        --timeout 180
+        --insecure
+      environment:
+        HOME: "{{ home_dir }}"
+

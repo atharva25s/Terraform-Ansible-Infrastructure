@@ -1,0 +1,15 @@
+- name: KinD + ArgoCD Full Stack Setup
+  hosts: ec2
+  become: true
+
+  roles:
+    - docker
+    - setup
+    - kind
+    - cluster
+    - kubectl
+    - argocd
+    - ingress
+    - argocd_cli
+    - app
+    - summary

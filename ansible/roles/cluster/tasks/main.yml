@@ -1,0 +1,20 @@
+- name: "4.1 | Check if KinD cluster exists"
+  command: kind get clusters
+  register: existing_clusters
+  changed_when: false
+  failed_when: false
+
+- name: "4.2 | Create KinD cluster"
+  command: >
+    kind create cluster
+    --config={{ kind_config }}
+    --name={{ kind_cluster_name }}
+  when: kind_cluster_name not in existing_clusters.stdout
+
+- name: "4.3 | Export kubeconfig"
+  shell: |
+    mkdir -p {{ home_dir }}/.kube
+    kind get kubeconfig --name={{ kind_cluster_name }} > {{ home_dir }}/.kube/config
+    chown -R ubuntu:ubuntu {{ home_dir }}/.kube
+  args:
+    executable: /bin/bash

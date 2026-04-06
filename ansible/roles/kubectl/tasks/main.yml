@@ -1,0 +1,22 @@
+- name: "5.1 | Make install_kubectl.sh executable"
+  file:
+    path: "{{ repo_dir }}/KinD-cluster/install_kubectl.sh"
+    mode: "0755"
+
+- name: "5.2 | Run install_kubectl.sh"
+  become_user: ubuntu
+  command: "{{ repo_dir }}/KinD-cluster/install_kubectl.sh"
+  args:
+    chdir: "{{ workdir }}"
+    creates: /usr/local/bin/kubectl
+
+- name: "5.3 | Verify kubectl"
+  become_user: ubuntu
+  command: kubectl get nodes
+  register: kubectl_nodes
+  changed_when: false
+  environment:
+    HOME: "{{ home_dir }}"
+
+- debug:
+    msg: "{{ kubectl_nodes.stdout_lines }}"

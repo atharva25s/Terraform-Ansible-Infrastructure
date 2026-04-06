@@ -1,0 +1,36 @@
+    # ============================================================================
+    # SECTION 8 – ArgoCD CLI install & login
+    # ============================================================================
+
+    - name: "8.1 | Install ArgoCD CLI binary"
+      shell: |
+        curl -sSL -o /tmp/argocd-linux-amd64 \
+          https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+        install -m 555 /tmp/argocd-linux-amd64 /usr/local/bin/argocd
+        rm -f /tmp/argocd-linux-amd64
+      args:
+        creates: /usr/local/bin/argocd
+
+    - name: "8.2 | Retrieve ArgoCD initial admin password"
+      become_user: ubuntu
+      shell: |
+        kubectl get secret -n {{ argocd_namespace }} argocd-initial-admin-secret \
+          -o jsonpath="{.data.password}" | base64 -d
+      register: argocd_password
+      changed_when: false
+      environment:
+        HOME: "{{ home_dir }}"
+
+    - name: "8.3 | Print ArgoCD admin password (save this!)"
+      debug:
+        msg: "ArgoCD admin password: {{ argocd_password.stdout }}"
+
+    - name: "8.4 | Log in to ArgoCD via CLI (insecure – self-signed cert)"
+      become_user: ubuntu
+      command: >
+        argocd login localhost:{{ argocd_port_forward_port }}
+        --username admin
+        --password {{ argocd_password.stdout }}
+        --insecure
+      environment:
+        HOME: "{{ home_dir }}"

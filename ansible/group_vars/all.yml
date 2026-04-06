@@ -1,0 +1,15 @@
+home_dir: /home/ubuntu
+workdir: "{{ home_dir }}/k8s-kind"
+repo_url: "https://github.com/atharva25s/Kubernetes-ArgoCD-Deployment.git"
+  
+repo_dir: "{{ workdir }}/Kubernetes-ArgoCD-Deployment"
+
+kind_cluster_name: test-cluster
+kind_config: "{{ repo_dir }}/KinD-cluster/config.yml"
+
+argocd_namespace: argocd
+argocd_app_name: car-app
+argocd_repo_url: "https://github.com/atharva25s/Kubernetes-ArgoCD-Deployment.git"
+argocd_app_path: K8s-specifications
+argocd_dest_namespace: default
+argocd_port_forward_port: 8443

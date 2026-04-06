@@ -1,0 +1,40 @@
+ # ============================================================================
+    # SECTION 7 – Nginx Ingress
+    # ============================================================================
+
+    - name: "7.1 | Install Nginx Ingress (KinD provider)"
+      become_user: ubuntu
+      command: >
+        kubectl apply
+        -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+      environment:
+        HOME: "{{ home_dir }}"
+
+    - name: "7.2 | Label control-plane node ingress-ready=true"
+      become_user: ubuntu
+      command: >
+        kubectl label node {{ kind_cluster_name }}-control-plane
+        ingress-ready=true
+        --overwrite
+      environment:
+        HOME: "{{ home_dir }}"
+
+    - name: "7.3 | Patch ingress-nginx-controller to use control-plane nodeSelector"
+      become_user: ubuntu
+      command: >
+        kubectl patch deployment ingress-nginx-controller
+        -n ingress-nginx
+        --type=json
+        -p='[{"op": "add", "path": "/spec/template/spec/nodeSelector",
+              "value": {"kubernetes.io/hostname": "{{ kind_cluster_name }}-control-plane"}}]'
+      environment:
+        HOME: "{{ home_dir }}"
+
+    - name: "7.4 | Wait for ingress-nginx controller to be ready"
+      become_user: ubuntu
+      command: >
+        kubectl rollout status deployment/ingress-nginx-controller
+        -n ingress-nginx
+        --timeout=180s
+      environment:
+        HOME: "{{ home_dir }}"

@@ -1,0 +1,59 @@
+  # ============================================================================
+    # SECTION 6 – ArgoCD setup
+    # ============================================================================
+
+    - name: "6.1 | Create argocd namespace"
+      become_user: ubuntu
+      command: kubectl create namespace {{ argocd_namespace }}
+      register: argocd_ns
+      failed_when: >
+        argocd_ns.rc != 0 and
+        'already exists' not in argocd_ns.stderr
+      changed_when: argocd_ns.rc == 0
+      environment:
+        HOME: "{{ home_dir }}"
+
+    - name: "6.2 | Apply ArgoCD stable manifests (server-side to avoid CRD annotation size limit)"
+      become_user: ubuntu
+      command: >
+        kubectl apply -n {{ argocd_namespace }}
+        --server-side
+        --force-conflicts
+        -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+      environment:
+        HOME: "{{ home_dir }}"
+
+    - name: "6.3 | Patch argocd-server service to NodePort"
+      become_user: ubuntu
+      command: >
+        kubectl patch svc argocd-server -n {{ argocd_namespace }}
+        -p '{"spec": {"type": "NodePort"}}'
+      environment:
+        HOME: "{{ home_dir }}"
+
+    - name: "6.4 | Wait for argocd-server deployment to be ready"
+      become_user: ubuntu
+      command: >
+        kubectl rollout status deployment/argocd-server
+        -n {{ argocd_namespace }}
+        --timeout=180s
+      environment:
+        HOME: "{{ home_dir }}"
+
+    - name: "6.5 | Start port-forward for argocd-server on 0.0.0.0:8443 (background)"
+      become_user: ubuntu
+      shell: >
+        nohup kubectl port-forward
+        -n {{ argocd_namespace }}
+        service/argocd-server
+        {{ argocd_port_forward_port }}:443
+        --address=0.0.0.0
+        > {{ workdir }}/argocd-portforward.log 2>&1 &
+      args:
+        executable: /bin/bash
+      environment:
+        HOME: "{{ home_dir }}"
+
+    - name: "6.6 | Pause 10s for port-forward to stabilise"
+      pause:
+        seconds: 10
