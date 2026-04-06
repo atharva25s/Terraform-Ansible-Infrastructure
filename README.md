@@ -1,4 +1,4 @@
-# Terraform Setup Guide
+# Terraform-Ansible Setup Guide
 
 ## 1. Install Terraform
 
@@ -24,42 +24,65 @@ terraform -version
 
 ---
 
-## 2. Create Terraform Directory
+## 2. Install Ansible
+
+```bash
+sudo apt install ansible
+```
+
+## 3. Install Git
+```bash
+sudo apt install git
+```
+
+## 4. Clone Repository
+
+```bash
+git clone https://github.com/atharva25s/Terraform-Ansible-Infrastructure.git
+```
+
+---
+
+## 5. Create Terraform and Ansible Directory
 
 ```bash
 mkdir -p ~/terraform
-cd ~/terraform
+mkdir -p ~/ansible
 ```
 
 ---
 
-## 3. Clone Repository
+
+
+## 4. Copy the Configurations
+
 
 ```bash
-git clone https://github.com/<your-repo>/KinD-deployment-with-ArgoCD.git
+cp -r ~/Terraform-Ansible-Infrastructure/terraform/* ~/terraform/
 ```
-
----
-
-## 4. Copy Terraform Configuration
-
-Navigate and copy the Terraform folder:
-
 ```bash
-cp -r KinD-deployment-with-ArgoCD/infrastructure/terraform/* ~/terraform/
+cp -r ~/Terraform-Ansible-Infrastructure/ansible/* ~/ansible/
 ```
-
 ---
 
 ## 5. Verify Directory Structure
 
-Ensure your local Terraform directory looks like this:
+- local Ansible directory looks like this:
+
+```
+~/ansible/
+├── group_vars/
+├── roles/
+├── site.yml
+└── ...
+```
+- local Terraform directory looks like this:
 
 ```
 ~/terraform/
 ├── main.tf
-├── variables.tf
-├── outputs.tf
+├── provider.tf
 └── ...
 ```
+
 
