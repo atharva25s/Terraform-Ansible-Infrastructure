@@ -1,0 +1,84 @@
+# =============================================================================
+# Stage 1 — builder
+# Installs Terraform + Ansible. Heavy apt machinery stays here.
+# =============================================================================
+FROM ubuntu:22.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        gnupg \
+        lsb-release \
+        software-properties-common \
+        git \
+        openssh-client \
+        openssh-server \
+        python3 \
+        python3-pip \
+        python3-boto3 \
+        python3-botocore \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://apt.releases.hashicorp.com/gpg \
+        | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
+        https://apt.releases.hashicorp.com $(lsb_release -cs) main" \
+        > /etc/apt/sources.list.d/hashicorp.list
+
+RUN add-apt-repository --yes ppa:ansible/ansible
+
+ARG TERRAFORM_VERSION=1.8.5
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        terraform=${TERRAFORM_VERSION}-* \
+        ansible \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+
+# =============================================================================
+# Stage 2 — runtime
+# Clean base. Copies only the installed binaries from builder.
+# =============================================================================
+FROM ubuntu:22.04
+
+LABEL maintainer="atharva25s" \
+      description="Terraform + Ansible IaC toolkit"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Runtime OS deps only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        git \
+        openssh-client \
+        openssh-server \
+        python3 \
+        python3-boto3 \
+        python3-botocore \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Terraform binary
+COPY --from=builder /usr/bin/terraform /usr/local/bin/terraform
+
+# Copy Ansible binaries + Python packages
+COPY --from=builder /usr/bin/ansible*       /usr/bin/
+COPY --from=builder /usr/share/ansible      /usr/share/ansible
+COPY --from=builder /usr/lib/python3        /usr/lib/python3
+
+# Smoke-test
+RUN terraform version && ansible --version
+
+WORKDIR /home/ubuntu
+
+COPY terraform/ ./terraform/
+COPY ansible/   ./ansible/
+
+RUN cd /home/ubuntu/terraform && terraform init -input=false || true \
+    && mkdir -p /home/ubuntu/config \
+    && touch /home/ubuntu/config/test-key.pem \
+    && chmod 600 /home/ubuntu/config/test-key.pem
+
+CMD ["bash"]

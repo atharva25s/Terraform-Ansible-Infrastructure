@@ -1,82 +1,85 @@
 # =============================================================================
-# Stage 1 — builder
-# Downloads and verifies the Terraform binary so the runtime stage stays clean.
-# =============================================================================
-FROM ubuntu:22.04 AS builder
-
-# Terraform version to pin (change here to upgrade)
-ARG TERRAFORM_VERSION=1.8.5
-ARG TARGETARCH=amd64
-
-# Install only what's needed to fetch and verify Terraform
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        curl \
-        gnupg \
-        unzip \
-    && rm -rf /var/lib/apt/lists/*
-
-# Import HashiCorp's GPG key and verify the downloaded binary
-RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-
-# Download Terraform zip + checksum file, then verify
-RUN curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_${TARGETARCH}.zip" \
-         -o /tmp/terraform.zip \
-    && curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_SHA256SUMS" \
-         -o /tmp/terraform_SHA256SUMS \
-    && grep "terraform_${TERRAFORM_VERSION}_linux_${TARGETARCH}.zip" /tmp/terraform_SHA256SUMS | sha256sum -c - \
-    && unzip /tmp/terraform.zip -d /usr/local/bin/ \
-    && chmod +x /usr/local/bin/terraform \
-    && rm -f /tmp/terraform.zip /tmp/terraform_SHA256SUMS
-
-
-# =============================================================================
-# Stage 2 — runtime
-# Minimal image with Terraform (from builder) + Ansible + repo configs.
+# Single-stage image — ubuntu:22.04 (jammy)
+#
+# Terraform is installed from the official HashiCorp apt repository.
+# Ansible is installed from the official Ansible PPA.
+# Both avoid direct binary downloads, which are blocked in many build envs.
 # =============================================================================
 FROM ubuntu:22.04
 
 LABEL maintainer="atharva25s" \
       description="Terraform + Ansible IaC toolkit"
 
-# Avoid interactive prompts during package installation
+# Avoid interactive prompts during apt installs
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Ansible (via PPA) and runtime dependencies in a single layer.
-# python3-boto3 / python3-botocore are included for AWS dynamic inventory.
+# -----------------------------------------------------------------------------
+# 1. Base dependencies + HashiCorp apt repo + Ansible PPA
+#    Combining into as few RUN layers as possible for better caching.
+# -----------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        software-properties-common \
-        gnupg \
+        ca-certificates \
         curl \
+        gnupg \
+        lsb-release \
+        software-properties-common \
         git \
         openssh-client \
+        openssh-server \
         python3 \
         python3-pip \
         python3-boto3 \
         python3-botocore \
-    && add-apt-repository --yes ppa:ansible/ansible \
-    && apt-get update && apt-get install -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# -----------------------------------------------------------------------------
+# 2. Add HashiCorp apt repository for Terraform
+# -----------------------------------------------------------------------------
+RUN curl -fsSL https://apt.releases.hashicorp.com/gpg \
+        | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
+        https://apt.releases.hashicorp.com $(lsb_release -cs) main" \
+        > /etc/apt/sources.list.d/hashicorp.list
+
+# -----------------------------------------------------------------------------
+# 3. Add Ansible PPA
+# -----------------------------------------------------------------------------
+RUN add-apt-repository --yes ppa:ansible/ansible
+
+# -----------------------------------------------------------------------------
+# 4. Install Terraform + Ansible from their respective repos in one apt pass.
+#    Pinning Terraform version avoids surprise upgrades.
+#    Clean up apt cache immediately to keep the layer small.
+# -----------------------------------------------------------------------------
+ARG TERRAFORM_VERSION=1.8.5
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        terraform=${TERRAFORM_VERSION}-* \
         ansible \
-    # Clean up apt caches to keep the layer small
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Copy the verified Terraform binary from the builder stage
-COPY --from=builder /usr/local/bin/terraform /usr/local/bin/terraform
+# Smoke-test both tools are reachable
+RUN terraform version && ansible --version
 
-# Set working directory
-WORKDIR /workspace
+# -----------------------------------------------------------------------------
+# 5. Copy repo configs into the image
+# -----------------------------------------------------------------------------
+WORKDIR /home/ubuntu
 
-# Copy Terraform and Ansible configuration files from the repo
 COPY terraform/ ./terraform/
-COPY ansible/  ./ansible/
+COPY ansible/   ./ansible/
 
-# Initialise Terraform providers at build time so the image is self-contained
-# (remove this block if you prefer to run `terraform init` at runtime instead)
-RUN cd /workspace/terraform && terraform init -input=false || true
+# Initialise Terraform providers at build time (optional — remove if provider
+# credentials are not available during the build).
+RUN cd /home/ubuntu/terraform && terraform init -input=false || true \
+    && mkdir -p /home/ubuntu/config \
+    && touch /home/ubuntu/config/test-key.pem \
+    && chmod 600 /home/ubuntu/config/test-key.pem
 
-# Expose a sensible PATH and default shell
-ENV PATH="/usr/local/bin:${PATH}"
-
-# Default: drop into bash so users can run terraform / ansible-playbook interactively.
-# Override with `docker run ... terraform plan` or `ansible-playbook ...` as needed.
+# -----------------------------------------------------------------------------
+# Default entrypoint: interactive shell.
+# Override at runtime:
+#   docker run --rm -it <image> terraform plan
+#   docker run --rm -it <image> ansible-playbook ansible/site.yml
+# -----------------------------------------------------------------------------
 CMD ["bash"]

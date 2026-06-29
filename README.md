@@ -86,3 +86,8 @@ cp -r ~/Terraform-Ansible-Infrastructure/ansible/* ~/ansible/
 ```
 
 
+## 6. Just Simply run the docker container
+```bash
+docker run -itd --name deployment-server -p 2222:22 atharva25s/terraform-ansible-setup:v2
+```
+- Follow [Next steps](ansible/ansible.md)

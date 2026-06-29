@@ -54,6 +54,20 @@
       environment:
         HOME: "{{ home_dir }}"
 
-    - name: "6.6 | Pause 10s for port-forward to stabilise"
+    - name: "6.6 | Patch ArgoCD application to ignore replica drift"
+      become_user: ubuntu
+      command: >
+        kubectl patch application car-app -n {{ argocd_namespace }}
+        --type=merge
+        -p '{"spec":{"ignoreDifferences":[{"group":"apps","kind":"Deployment","name":"backend-car-app","jsonPointers":["/spec/replicas"]},{"group":"apps","kind":"Deployment","name":"frontend-car-app","jsonPointers":["/spec/replicas"]}]}}'
+      environment:
+        HOME: "{{ home_dir }}"
+      register: patch_result
+      failed_when: >
+        patch_result.rc != 0 and
+        'not found' not in patch_result.stderr
+      changed_when: patch_result.rc == 0
+
+    - name: "6.7 | Pause 10s for port-forward to stabilise"
       pause:
         seconds: 10
