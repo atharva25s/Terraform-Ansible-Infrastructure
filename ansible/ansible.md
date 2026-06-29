@@ -41,23 +41,23 @@ provider "aws" {
 
 ---
 
-## Step 4: Initialize Terraform
+#  Terraform Commands
+
+Run the following commands **in order** from `/home/ubuntu/terraform`.
+
+### 1. Initialize Terraform
 
 ```bash
 terraform init
 ```
 
----
-
-## Step 5: Review the Execution Plan
+### 2. Review the Execution Plan
 
 ```bash
 terraform plan
 ```
 
----
-
-## Step 6: Provision the Infrastructure
+### 3. Provision the Infrastructure
 
 ```bash
 terraform apply
@@ -69,11 +69,9 @@ When prompted, type:
 yes
 ```
 
-Wait for Terraform to finish provisioning the infrastructure.
-
 ---
 
-## Step 7: Navigate to the Ansible Directory
+## Step 4: Navigate to the Ansible Directory
 
 ```bash
 cd /home/ubuntu/ansible
@@ -88,12 +86,30 @@ site.yml
 
 ---
 
-## Step 8: Run the Ansible Playbook
+#  Ansible Command
 
-Execute the following command:
+Run the following command to configure all provisioned instances:
 
 ```bash
 ansible-playbook -i inventory.ini site.yml
 ```
 
-Once the playbook completes successfully, the infrastructure will be configured and ready to use.
+---
+
+## Commands Summary
+
+> Run these commands **in this exact order**:
+
+```bash
+cd /home/ubuntu/terraform
+
+terraform init
+
+terraform plan
+
+terraform apply
+
+cd /home/ubuntu/ansible
+
+ansible-playbook -i inventory.ini site.yml
+```
